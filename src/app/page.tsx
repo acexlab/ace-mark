@@ -1,28 +1,8 @@
-  'use client';
+'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
 export default function LandingPage() {
-  const router = useRouter();
-
-  // 🔐 Check if user is already logged in
-  useEffect(() => {
-    const checkSession = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        router.push('/dashboard');
-      }
-    };
-
-    checkSession();
-  }, [router]);
-
-  // 🔑 Google login
   const loginWithGoogle = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -33,54 +13,76 @@ export default function LandingPage() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white flex flex-col">
-      {/* HERO */}
-      <section className="flex flex-col items-center justify-center flex-1 text-center px-6">
-        <h1 className="text-4xl md:text-6xl font-bold mb-4">
-          Ace mark
-        </h1>
+    <main className="min-h-screen bg-[#070A13] text-white relative overflow-hidden">
+      {/* Background gradient glow */}
+      <div className="absolute inset-0 bg-gradient-to-br from-black via-[#0B1020] to-[#1A1F3C] opacity-90" />
 
-        <p className="text-gray-400 max-w-xl mb-8">
-          Save, organize, and access your important links securely.
-          Your bookmarks, synced in real time across devices.
-        </p>
+      <div className="relative z-10 flex flex-col min-h-screen">
+        {/* Header */}
+        <header className="px-4 py-4 md:px-6 md:py-6 max-w-7xl mx-auto w-full">
+          <h1 className="text-lg font-semibold tracking-wide">
+            Ace mark
+          </h1>
+        </header>
 
-        <button
-          onClick={loginWithGoogle}
-          className="bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-200 transition"
-        >
-          Continue with Google
-        </button>
-      </section>
+        {/* Hero */}
+        <section className="flex flex-col items-center text-center px-4 md:px-6 flex-1 justify-center">
+          <h2 className="text-3xl sm:text-4xl md:text-6xl font-bold mb-4 md:mb-6">
+            Ace mark
+          </h2>
 
-      {/* FEATURES */}
-      <section className="bg-gray-900 py-12 px-6">
-        <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-8 text-center">
-          <div>
-            <h3 className="text-xl font-semibold mb-2">🔐 Secure</h3>
-            <p className="text-gray-400">
-              Google authentication with private, user-only data access.
-            </p>
+          <p className="text-gray-400 max-w-xl text-sm sm:text-base md:text-lg mb-6 md:mb-10">
+            Save, organize, and access your important links — securely
+            synced across all devices.
+          </p>
+
+          <button
+            onClick={loginWithGoogle}
+            className="bg-white text-black px-6 py-2 md:px-8 md:py-3 rounded-full font-medium hover:bg-gray-200 transition"
+          >
+            Continue with Google
+          </button>
+        </section>
+
+        {/* Features */}
+        <section className="px-6 pb-16">
+          <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+            {/* Card */}
+            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-6 text-left">
+              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                🔐 Secure
+              </h3>
+              <p className="text-gray-400 text-sm">
+                Google authentication with private, user-only data
+                access.
+              </p>
+            </div>
+
+            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-6 text-left">
+              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                ⚡ Real-time
+              </h3>
+              <p className="text-gray-400 text-sm">
+                Changes sync instantly across tabs and devices.
+              </p>
+            </div>
+
+            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-6 text-left">
+              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                📚 Organized
+              </h3>
+              <p className="text-gray-400 text-sm">
+                Save and manage all your important links in one
+                place.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-xl font-semibold mb-2">⚡ Real-time</h3>
-            <p className="text-gray-400">
-              Changes sync instantly across tabs and devices.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-xl font-semibold mb-2">📚 Organized</h3>
-            <p className="text-gray-400">
-              Save and manage all your important links in one place.
-            </p>
-          </div>
-        </div>
-      </section>
 
-      {/* FOOTER */}
-      <footer className="text-center text-gray-500 text-sm py-4">
-        Built with Next.js & Supabase
-      </footer>
+          <p className="text-center text-gray-500 text-sm mt-10">
+            
+          </p>
+        </section>
+      </div>
     </main>
   );
 }

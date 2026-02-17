@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { supabase } from '@/lib/supabaseClient';
 
 export default function ProfilePage() {
@@ -110,7 +111,7 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-[#070A13] text-white">
       {/* HEADER */}
       <header className="border-b border-white/10">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex justify-between items-center">
+        <div className="max-w-4xl mx-auto px-4 py-4 md:px-6 md:py-4 flex justify-between items-center">
           <h1 className="font-semibold">Profile</h1>
           <Link
             href="/dashboard"
@@ -122,16 +123,18 @@ export default function ProfilePage() {
       </header>
 
       {/* MAIN */}
-      <main className="max-w-4xl mx-auto px-6 py-8">
-        <div className="bg-[#0E1222] p-6 rounded-xl space-y-6">
+      <main className="max-w-4xl mx-auto px-4 py-6 md:px-6 md:py-8">
+        <div className="bg-[#0E1222] p-4 md:p-6 rounded-xl space-y-6">
           {/* AVATAR */}
-          <div className="flex items-center gap-6">
-            <div className="w-24 h-24 rounded-full bg-violet-600 flex items-center justify-center overflow-hidden text-2xl font-bold">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-violet-600 flex items-center justify-center overflow-hidden text-lg sm:text-2xl font-bold">
               {avatarUrl ? (
-                <img
+                <Image
                   src={`${avatarUrl}?t=${Date.now()}`}
                   alt="Avatar"
-                  className="w-full h-full object-cover"
+                  className="object-cover"
+                  width={96}
+                  height={96}
                 />
               ) : (
                 email[0]?.toUpperCase()
@@ -149,7 +152,7 @@ export default function ProfilePage() {
                   }
                 }}
               />
-              <span className="bg-[#070A13] border border-white/10 px-4 py-2 rounded hover:bg-white/5">
+              <span className="bg-[#070A13] border border-white/10 px-3 py-2 rounded hover:bg-white/5 text-sm">
                 {uploading ? 'Uploading…' : 'Change photo'}
               </span>
             </label>

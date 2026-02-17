@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 
 type Bookmark = {
@@ -20,45 +20,39 @@ export default function Dashboard() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [title, setTitle] = useState('');
   const [url, setUrl] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  const [editing, setEditing] = useState<Bookmark | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
-
-  // 🔹 SORT: favorites first, then newest
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editUrl, setEditUrl] = useState('');
+  // 🔹 SORT: favorites first
   const sortBookmarks = (list: Bookmark[]) =>
-    [...list].sort((a, b) => {
-      if (a.is_favorite !== b.is_favorite) {
-        return a.is_favorite ? -1 : 1;
-      }
-      return (
-        new Date(b.created_at).getTime() -
-        new Date(a.created_at).getTime()
-      );
-    });
+    [...list].sort((a, b) =>
+      a.is_favorite === b.is_favorite
+        ? new Date(b.created_at).getTime() -
+          new Date(a.created_at).getTime()
+        : a.is_favorite
+        ? -1
+        : 1
+    );
 
-  // 🔐 AUTH + REALTIME
+  // 🔐 AUTH + REALTIME (UNCHANGED LOGIC)
   useEffect(() => {
-    let channel: any;
+    let channel: RealtimeChannel | null = null;
 
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-
       if (!user) {
         router.push('/');
         return;
       }
 
-      // Initial fetch
       const { data } = await supabase
         .from('bookmarks')
         .select('*')
         .eq('user_id', user.id);
 
       if (data) setBookmarks(sortBookmarks(data));
-      setLoading(false);
 
-      // 🔥 REALTIME
       channel = supabase
         .channel('bookmarks-realtime')
         .on(
@@ -74,14 +68,12 @@ export default function Dashboard() {
               let updated = [...prev];
 
               if (payload.eventType === 'INSERT') {
-                updated.push(payload.new as Bookmark);
+                updated.unshift(payload.new as Bookmark);
               }
 
               if (payload.eventType === 'UPDATE') {
                 updated = updated.map((b) =>
-                  b.id === payload.new.id
-                    ? (payload.new as Bookmark)
-                    : b
+                  b.id === payload.new.id ? payload.new as Bookmark : b
                 );
               }
 
@@ -99,16 +91,15 @@ export default function Dashboard() {
     };
 
     init();
-
     return () => {
-      if (channel) supabase.removeChannel(channel);
+      if (channel) {
+        void supabase.removeChannel(channel);
+      }
     };
   }, [router]);
-
   // ➕ ADD
   const addBookmark = async () => {
     if (!title || !url) return;
-
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -123,47 +114,17 @@ export default function Dashboard() {
     setUrl('');
   };
 
-  // ✏️ UPDATE
-  const updateBookmark = async () => {
-    if (!editing) return;
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
+  // ❤️ FAVORITE
+  const toggleFavorite = async (b: Bookmark) => {
     await supabase
       .from('bookmarks')
-      .update({
-        title: editing.title,
-        url: editing.url,
-      })
-      .eq('id', editing.id)
-      .eq('user_id', user.id);
-
-    setEditing(null);
+      .update({ is_favorite: !b.is_favorite })
+      .eq('id', b.id);
   };
 
   // ❌ DELETE
   const deleteBookmark = async (id: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    await supabase
-      .from('bookmarks')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', user.id);
-  };
-
-  // ❤️ FAVORITE TOGGLE
-  const toggleFavorite = async (b: Bookmark) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    await supabase
-      .from('bookmarks')
-      .update({ is_favorite: !b.is_favorite })
-      .eq('id', b.id)
-      .eq('user_id', user.id);
+    await supabase.from('bookmarks').delete().eq('id', id);
   };
 
   // 🚪 LOGOUT
@@ -172,164 +133,176 @@ export default function Dashboard() {
     router.push('/');
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#070A13] flex items-center justify-center text-gray-400">
-        Loading…
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#070A13] text-white">
-      {/* HEADER */}
-      <header className="border-b border-white/10">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex gap-6 items-center">
-            <h1 className="font-semibold">Ace mark</h1>
-            <Link
-              href="/profile"
-              className="text-sm text-gray-400 hover:text-white"
-            >
-              Profile
-            </Link>
-          </div>
+    <main className="min-h-screen bg-[#070A13] text-white relative overflow-hidden">
+      {/* Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-black via-[#0B1020] to-[#1A1F3C]" />
 
-          <button onClick={logout} className="text-red-400 text-sm">
-            Logout
-          </button>
-        </div>
-      </header>
-
-      {/* MAIN */}
-      <main className="max-w-6xl mx-auto px-6 py-8">
-        {/* ADD */}
-        <div className="bg-[#0E1222] p-6 rounded-xl mb-8">
-          <div className="flex gap-4">
-            <input
-              className="flex-1 bg-[#070A13] border border-white/10 p-3 rounded"
-              placeholder="Title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-            <input
-              className="flex-1 bg-[#070A13] border border-white/10 p-3 rounded"
-              placeholder="https://example.com"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-            />
+      <div className="relative z-10 min-h-screen flex flex-col">
+        {/* HEADER */}
+        <header className="px-4 py-4 md:px-6 md:py-5 border-b border-white/10">
+          <div className="max-w-6xl mx-auto flex justify-between items-center">
+            <div className="flex gap-6 items-center">
+              <h1 className="font-semibold">Ace mark</h1>
+              <button
+                onClick={() => router.push('/profile')}
+                className="text-gray-400 hover:text-white text-sm"
+              >
+                Profile
+              </button>
+            </div>
             <button
-              onClick={addBookmark}
-              className="bg-violet-600 px-5 rounded"
+              onClick={logout}
+              className="text-red-400 text-sm"
             >
-              Add
+              Logout
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* LIST */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {bookmarks.map((b) => (
-            <div
-              key={b.id}
-              className="bg-[#0E1222] p-5 rounded-xl border border-white/10 relative"
-            >
-              {/* MENU */}
+        {/* CONTENT */}
+        <section className="flex-1 px-4 py-8 md:px-6 md:py-10">
+          <div className="max-w-5xl mx-auto space-y-8">
+            {/* ADD BAR */}
+            <div className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-3 flex flex-col sm:flex-row gap-3">
+              <input
+                className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2 sm:py-2"
+                placeholder="Title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+              <input
+                className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2 sm:py-2"
+                placeholder="https://example.com"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+              />
               <button
-                onClick={() =>
-                  setMenuOpenId(menuOpenId === b.id ? null : b.id)
-                }
-                className="absolute top-3 right-3 text-gray-400"
+                onClick={addBookmark}
+                className="bg-violet-600 px-4 py-2 sm:px-6 rounded-lg font-medium"
               >
-                ⋮
+                Add
               </button>
-
-              {menuOpenId === b.id && (
-                <div className="absolute top-8 right-3 bg-[#070A13] border border-white/10 rounded-lg z-10">
-                  <button
-                    onClick={() => {
-                      setEditing(b);
-                      setMenuOpenId(null);
-                    }}
-                    className="block px-4 py-2 hover:bg-white/5 w-full text-left"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => toggleFavorite(b)}
-                    className="block px-4 py-2 hover:bg-white/5 w-full text-left"
-                  >
-                    {b.is_favorite ? 'Unfavorite' : 'Favorite'}
-                  </button>
-                  <button
-                    onClick={() => deleteBookmark(b.id)}
-                    className="block px-4 py-2 text-red-400 hover:bg-white/5 w-full text-left"
-                  >
-                    Delete
-                  </button>
-                </div>
-              )}
-
-              {/* TITLE + HEART */}
-              <div className="flex justify-between items-start">
-                <h3 className="font-medium mb-1">{b.title}</h3>
-                {b.is_favorite && (
-                  <span className="text-red-500 text-xl">❤️</span>
-                )}
-              </div>
-
-              <a
-                href={b.url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm text-violet-400 break-all"
-              >
-                {b.url}
-              </a>
             </div>
-          ))}
-        </div>
-      </main>
 
-      {/* EDIT MODAL */}
-      {editing && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center">
-          <div className="bg-[#0E1222] p-6 rounded-xl w-full max-w-md">
-            <h2 className="font-semibold mb-4">Edit Bookmark</h2>
+            {/* BOOKMARK LIST */}
+            <div className="space-y-4">
+              {bookmarks.map((b) => (
+                <div
+                  key={b.id}
+                  className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-4 md:p-5 relative"
+                >
+                  {/* MENU */}
+                  <button
+                    onClick={() =>
+                      setMenuOpenId(
+                        menuOpenId === b.id ? null : b.id
+                      )
+                    }
+                    className="absolute top-3 right-3 text-gray-400"
+                  >
+                    ⋮
+                  </button>
 
-            <input
-              className="w-full mb-3 bg-[#070A13] border border-white/10 p-3 rounded"
-              value={editing.title}
-              onChange={(e) =>
-                setEditing({ ...editing, title: e.target.value })
-              }
-            />
+                  {menuOpenId === b.id && (
+                    <div className="absolute top-10 right-4 bg-[#070A13] border border-white/10 rounded-lg overflow-hidden">
+                      <button
+                        onClick={() => {
+                          setEditingId(b.id);
+                          setEditTitle(b.title);
+                          setEditUrl(b.url);
+                          setMenuOpenId(null);
+                        }}
+                        className="block px-4 py-2 hover:bg-white/5 w-full text-left"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => toggleFavorite(b)}
+                        className="block px-4 py-2 hover:bg-white/5 w-full text-left"
+                      >
+                        {b.is_favorite ? 'Unfavorite' : 'Favorite'}
+                      </button>
+                      <button
+                        onClick={() => deleteBookmark(b.id)}
+                        className="block px-4 py-2 text-red-400 hover:bg-white/5 w-full text-left"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
 
-            <input
-              className="w-full mb-4 bg-[#070A13] border border-white/10 p-3 rounded"
-              value={editing.url}
-              onChange={(e) =>
-                setEditing({ ...editing, url: e.target.value })
-              }
-            />
+                  {editingId === b.id ? (
+                    <div className="space-y-3">
+                      <input
+                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                      />
+                      <input
+                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white"
+                        value={editUrl}
+                        onChange={(e) => setEditUrl(e.target.value)}
+                      />
+                      <div className="flex gap-3">
+                        <button
+                          onClick={async () => {
+                            if (!editTitle || !editUrl) return;
+                            await supabase
+                              .from('bookmarks')
+                              .update({ title: editTitle, url: editUrl })
+                              .eq('id', b.id);
+                            setEditingId(null);
+                            // Optimistic update
+                            setBookmarks((prev) =>
+                              prev.map((p) =>
+                                p.id === b.id ? { ...p, title: editTitle, url: editUrl } : p
+                              )
+                            );
+                          }}
+                          className="bg-violet-600 px-3 py-1 rounded text-sm"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="px-3 py-1 rounded bg-white/5 text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-medium">{b.title}</h3>
+                        <a
+                          href={b.url}
+                          target="_blank"
+                          className="text-sm text-violet-400"
+                        >
+                          {b.url}
+                        </a>
+                      </div>
 
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setEditing(null)}
-                className="text-gray-400"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={updateBookmark}
-                className="bg-violet-600 px-4 py-2 rounded"
-              >
-                Save
-              </button>
+                      {b.is_favorite && (
+                        <span className="text-red-500 text-xl">
+                          ❤️
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        </section>
+
+        {/* FOOTER */}
+        <footer className="text-center text-gray-500 text-sm py-6">
+          
+        </footer>
+      </div>
+    </main>
   );
 }
